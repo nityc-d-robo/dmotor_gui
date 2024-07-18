@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::sync::Mutex;
+use std::{sync::{Arc, Mutex}, thread, time::Duration};
 
 use motor_lib;
 use advanced_pid::{VelPid, PidConfig, PidController};
@@ -29,27 +29,43 @@ struct BlMdStruct {
 fn send_md(/*handle: tauri::State<DeviceHandle<GlobalContext>>, */command: MdStruct) {
     println!("{:?}", command);
 }
-#[tauri::command]
-fn send_blmd(handle: tauri::State<DeviceHandle<GlobalContext>>, pid: tauri::State<Mutex<VelPid>>,command: BlMdStruct) {
-    println!("{:?}", command);
+#[tauri::command(async)]
+async fn send_blmd(blmd_process_manager: tauri::State<'_, Arc<Mutex<[i32; 8]>>>,handle: tauri::State<'_, DeviceHandle<GlobalContext>> ,command: BlMdStruct) -> Result<(),()>{
+    let manager = blmd_process_manager.clone();
+    manager.lock().unwrap()[(command.controller_id - 1) as usize]+=1;
+    thread::sleep(Duration::from_millis(15));
     match command.mode {
-        2 => motor_lib::blmd::send_current(&handle, command.controller_id, command.value),
-        3 => {
-            let mut pid = pid.lock().unwrap();
-            motor_lib::blmd::send_velocity(&handle, &mut pid, command.controller_id, command.value)
+        2 => {
+            while manager.lock().unwrap()[(command.controller_id - 1) as usize] == 1{
+                motor_lib::blmd::send_current(&handle, command.controller_id, command.value);
+            }
+            manager.lock().unwrap()[(command.controller_id - 1) as usize]-=1;
         },
-        _ => motor_lib::blmd::receive_status(&handle, command.controller_id),
+        3 => {
+            let config = PidConfig::new(1.0, 0.1, 0.1).with_limits(-16384.0, 16384.0);
+            let mut pid = VelPid::new(config);
+            while manager.lock().unwrap()[(command.controller_id - 1) as usize] == 1{
+                println!("{}", command.value);
+                motor_lib::blmd::send_velocity(&handle, &mut pid, command.controller_id, command.value);
+                thread::sleep(Duration::from_millis(10));
+            }
+            manager.lock().unwrap()[(command.controller_id - 1) as usize]-=1;
+        },
+        _ => {
+            motor_lib::blmd::receive_status(&handle, command.controller_id);
+            manager.lock().unwrap()[(command.controller_id - 1) as usize]-=1;
+        },
     };
+    Ok(())
 }
 
 fn main() {
+    let blmd_process_manager = Arc::new(Mutex::new([0;8]));
     let handle = motor_lib::init_usb_handle(0x483, 0x5740, 0);
-    let config = PidConfig::new(1.0, 0.1, 0.1).with_limits(-16384.0, 16384.0);
-    let pid = Mutex::new(VelPid::new(config));
 
     tauri::Builder::default()
+        .manage(blmd_process_manager)
         .manage(handle)
-        .manage(pid)
         .invoke_handler(tauri::generate_handler![send_md])
         .invoke_handler(tauri::generate_handler![send_blmd])
         .run(tauri::generate_context!())
