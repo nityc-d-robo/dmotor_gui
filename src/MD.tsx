@@ -13,7 +13,7 @@ function WriteButton(){
     const mode = useAtom(MdModeAtom)[0];
     const phase = useAtom(MdPhaseAtom)[0];
     const limsw = useAtom(MdLimSwAtom)[0];
-    const value = useAtom(MdCommandValueAtom)[0];
+    const value = phase ? useAtom(MdCommandValueAtom)[0] : -useAtom(MdCommandValueAtom)[0];
 
     return <Button onClick={async () => {
         console.log(address, mode, phase, value);

@@ -1553,7 +1553,7 @@ dependencies = [
 [[package]]
 name = "motor_lib"
 version = "0.1.0"
-source = "git+https://github.com/nityc-d-robo/motor_lib.git?branch=feature/robomaster-protocol#eb9287c93f57954eb2157448d1fcdbaf6e1938fa"
+source = "git+https://github.com/nityc-d-robo/motor_lib.git?branch=feature/robomaster-protocol#e546d93780afcc0ba016c3350752c4f74d5a2393"
 dependencies = [
  "advanced-pid",
  "rusb",

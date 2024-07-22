@@ -1,3 +1,5 @@
+import { invoke } from '@tauri-apps/api'
+
 import "./App.css";
 import SelectBox from "./SelectBox";
 import InputText from "./InputText";
@@ -47,7 +49,9 @@ function App() {
         <textarea className="resize-none min-w-[28.5rem] grow pl-3 border border-black rounded-lg"></textarea>
         <div className="flex flex-col gap-4">
           <Button>View Graph</Button>
-          <Button color="Red">Emergency</Button>
+          <Button color="Red" onClick={async () =>{
+            await invoke("send_emergency")
+          }}>Emergency</Button>
         </div>
       </div>
     </div>
