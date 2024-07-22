@@ -21,7 +21,6 @@ function WriteButton(){
             command:{
                 address: address,
                 mode: mode,
-                phase: phase,
                 limsw: limsw,
                 value: value
             }

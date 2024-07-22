@@ -12,9 +12,8 @@ use serde::{Serialize, Deserialize};
 struct MdStruct {
     address: u8,
     mode: u8,
-    phase: u8,
     limsw: u8,
-    value: u16
+    value: i16
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -26,8 +25,21 @@ struct BlMdStruct {
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
-fn send_md(/*handle: tauri::State<DeviceHandle<GlobalContext>>, */command: MdStruct) {
-    println!("{:?}", command);
+fn send_md(md_process_manager: tauri::State<'_, Arc<Mutex<[i32; 8]>>>, handle: tauri::State<DeviceHandle<GlobalContext>>, command: MdStruct) {
+    let manager = md_process_manager.clone();
+    let mut manager = manager.lock().unwrap();
+    manager[(command.address - 1) as usize]+=1;
+    thread::sleep(Duration::from_millis(15));
+    match command.mode{
+        2 => {
+            motor_lib::md::send_pwm(&handle, command.address, command.value);
+            manager[(command.address - 1) as usize]-=1;
+        }
+        _ => {
+            motor_lib::md::receive_status(&handle, command.address);
+            manager[(command.address - 1) as usize]-=1;
+        }
+    }
 }
 #[tauri::command(async)]
 async fn send_blmd(blmd_process_manager: tauri::State<'_, Arc<Mutex<[i32; 8]>>>,handle: tauri::State<'_, DeviceHandle<GlobalContext>> ,command: BlMdStruct) -> Result<(),()>{
@@ -61,10 +73,12 @@ async fn send_blmd(blmd_process_manager: tauri::State<'_, Arc<Mutex<[i32; 8]>>>,
 }
 
 fn main() {
+    let md_process_manager = Arc::new(Mutex::new([0;16]));
     let blmd_process_manager = Arc::new(Mutex::new([0;8]));
     let handle = motor_lib::init_usb_handle(0x483, 0x5740, 0);
 
     tauri::Builder::default()
+        .manage(md_process_manager)
         .manage(blmd_process_manager)
         .manage(handle)
         .invoke_handler(tauri::generate_handler![send_md])
