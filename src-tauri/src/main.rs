@@ -82,7 +82,7 @@ fn send_emergency(handle: tauri::State<'_, DeviceHandle<GlobalContext>>){
 fn main() {
     let md_process_manager = Arc::new(Mutex::new([0;16]));
     let blmd_process_manager = Arc::new(Mutex::new([0;8]));
-    let handle = motor_lib::init_usb_handle(0x483, 0x5740, 0);
+    let handle = motor_lib::init_usb_handle(0x483, 0x5740, 1);
 
     tauri::Builder::default()
         .manage(md_process_manager)
